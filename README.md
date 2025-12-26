@@ -20,15 +20,14 @@ PdfRuin input_directory -o out
 From source
 
 ```bash
-uv sync
-uv run python ruin.py your_file.pdf
+cargo
+cargo run --release -- your_file.pdf
 ```
 
 ## Development
 
-Build executable with pyinstaller
+Build executable 
 
 ```bash
-# replace with your site packages path
-uv tool run pyinstaller --onefile --nowindow --clean --paths ./.venv/lib/python3.13/site-packages/ --name PdfRuin ruin.py
+cargo build --release
 ```
