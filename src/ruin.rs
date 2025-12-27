@@ -63,6 +63,16 @@ pub fn ruin_file(filepath: &str, out_path: &std::path::Path) -> Result<RuinedInf
         }
     }
 
+    if pages_changed.is_empty() {
+        return Ok(RuinedInfo {
+            file_name: filepath.to_string(),
+            max_difference: 0.0,
+            diff_pages: String::new(),
+            modify_time: begin_modify_time.elapsed().as_secs_f32(),
+            analyze_time: 0.0,
+        });
+    }
+
     let begin_compare_time = std::time::Instant::now();
 
     let (max_difference, diff_pages) = optical_compare(
