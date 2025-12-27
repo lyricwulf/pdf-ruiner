@@ -21,6 +21,8 @@ pub fn is_rectangle(object: &PdfPageObject) -> bool {
 
         // Additional checks could be done to verify it's actually rectangular
         // (e.g., checking angles, parallel sides, etc.)
+
+        return true;
     }
     false
 }
