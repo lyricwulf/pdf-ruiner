@@ -30,22 +30,22 @@ pub fn ruin_file(
 
     // Process each page
     for (page_index, mut page) in ruined_document.pages().iter().enumerate() {
-        let handle_generic_annotation = |annotation: &PdfPageAnnotation| {
-            // println!(
-            //     "{:?} {:.1?} => pg.{}, \"{}\"",
-            //     annotation.annotation_type(),
-            //     bounds_dimensions(&annotation.bounds().unwrap()),
-            //     page_index + 1,
-            //     filepath,
-            // );
-        };
-
         let mut modified = false;
 
         // Defer page regeneration until after all modifications
         page.set_content_regeneration_strategy(PdfPageContentRegenerationStrategy::Manual);
 
-        if (strategy.contains(RuinStrategy::Annotation)) {
+        if strategy.contains(RuinStrategy::Annotation) {
+            let handle_generic_annotation = |annotation: &PdfPageAnnotation| {
+                println!(
+                    "{:?} {:.1?} => pg.{}, \"{}\"",
+                    annotation.annotation_type(),
+                    bounds_dimensions(&annotation.bounds().unwrap()),
+                    page_index + 1,
+                    filepath,
+                );
+            };
+
             for mut annotation in page.annotations().iter() {
                 if annotation.is_hidden() || !annotation.is_printed() {
                     continue;

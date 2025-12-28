@@ -19,7 +19,7 @@ struct Args {
     #[arg(short, long, default_value = "ruined")]
     out: String,
 
-    #[arg(short, long, default_value = "rect")]
+    #[arg(short, long, value_delimiter = ',', default_value = "rect")]
     strategy: Vec<String>,
 
     #[arg(short, long)]
