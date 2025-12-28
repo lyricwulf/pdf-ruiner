@@ -5,10 +5,13 @@ use pdfium_render::prelude::*;
 
 fn render_pdfium_page_to_image(pdf: &PdfDocument, page_index: PdfPageIndex) -> Result<GrayImage> {
     let page = pdf.pages().get(page_index)?;
-    let render_config = PdfRenderConfig::new();
+    let render_config = PdfRenderConfig::new()
+        // BUG: pdfium errors if bitmap format is set to Gray
+        // .set_format(PdfBitmapFormat::Gray);
+        .use_grayscale_rendering(true);
     let img = page.render_with_config(&render_config)?.as_image();
 
-    Ok(img.to_luma8())
+    Ok(img.into_luma8())
 }
 
 pub fn optical_compare(
@@ -50,11 +53,11 @@ pub fn optical_compare(
         let diff_average_value = calculate_average_value(&weighted_thresholded);
 
         // Save the diff image for inspection
-        // let output_path = format!("pdf_weighted_thresholded_pg{}.png", page_num + 1);
+        // let output_path = format!("dist/img/pdf_weighted_thresholded_pg{}.png", page_num + 1);
         // array_to_image(&weighted_thresholded, width, height).save(&output_path)?;
-        // let output_path = format!("pdf_blurred_pg{}.png", page_num + 1);
+        // let output_path = format!("dist/img/pdf_blurred_pg{}.png", page_num + 1);
         // blurred.save(&output_path)?;
-        // let output_path = format!("pdf_diff_raw_pg{}.png", page_num + 1);
+        // let output_path = format!("dist/img/pdf_diff_raw_pg{}.png", page_num + 1);
         // array_to_image(&diff, width, height).save(&output_path)?;
 
         if diff_average_value < min_average_value {
