@@ -21,32 +21,110 @@ pub fn ruin_file(
     let begin_modify_time = std::time::Instant::now();
 
     let document_bytes = std::fs::read(filepath)?;
-    let document_size = document_bytes.len();
 
     // Open the document twice. Could there be a way to avoid re-parsing?
     let original_document = pdfium.load_pdf_from_byte_vec(document_bytes.clone(), None)?;
     let ruined_document = pdfium.load_pdf_from_byte_vec(document_bytes, None)?;
 
-    eprint!(
-        "Found file {:<.2} MB: {}\r",
-        document_size as f64 / (1024.0 * 1024.0),
-        filepath,
-    );
-
     let mut pages_changed = vec![];
 
     // Process each page
     for (page_index, mut page) in ruined_document.pages().iter().enumerate() {
+        let handle_generic_annotation = |annotation: &PdfPageAnnotation| {
+            // println!(
+            //     "{:?} {:.1?} => pg.{}, \"{}\"",
+            //     annotation.annotation_type(),
+            //     bounds_dimensions(&annotation.bounds().unwrap()),
+            //     page_index + 1,
+            //     filepath,
+            // );
+        };
+
         let mut modified = false;
 
         // Defer page regeneration until after all modifications
         page.set_content_regeneration_strategy(PdfPageContentRegenerationStrategy::Manual);
 
-        // Get all objects on the page
-        let objects = page.objects();
+        if (strategy.contains(RuinStrategy::Annotation)) {
+            for mut annotation in page.annotations().iter() {
+                if annotation.is_hidden() || !annotation.is_printed() {
+                    continue;
+                }
+                match &annotation {
+                    PdfPageAnnotation::Circle(circle) => handle_generic_annotation(&annotation),
+                    PdfPageAnnotation::FreeText(freetext) => {
+                        println!(
+                            "Annotation::FreeText {}",
+                            freetext.contents().unwrap_or_default()
+                        );
+                    }
+                    PdfPageAnnotation::Highlight(highlight) => {
+                        handle_generic_annotation(&annotation)
+                    }
+                    PdfPageAnnotation::Ink(ink) => handle_generic_annotation(&annotation),
+                    PdfPageAnnotation::Link(link) => {
+                        // let annotation_label = if let Some(action) = link.link()?.action() {
+                        //     match action {
+                        //         PdfAction::LocalDestination(dest) => "<LocalDestination>",
+                        //         PdfAction::RemoteDestination(dest) => "<RemoteDestination>",
+                        //         PdfAction::EmbeddedDestination(dest) => "<EmbeddedDestination>",
+                        //         PdfAction::Launch(launch) => "<Launch>",
+                        //         // PdfAction::Uri(uri) => match uri.uri() {
+                        //         //     Ok(uri_str) => {
+                        //         //         println!("{}", uri_str);
+                        //         //         "<URI>"
+                        //         //     }
+                        //         //     Err(_) => "<No URI>",
+                        //         // },
+                        //         PdfAction::Unsupported(unsupported) => "<Unsupported>",
+                        //         _ => "",
+                        //     }
+                        // } else {
+                        //     "<No Action>"
+                        // };
+                        // if !annotation_label.is_empty() {
+                        //     println!("Annotation::Link {}", annotation_label);
+                        //     continue;
+                        // }
+                    }
+                    PdfPageAnnotation::Popup(popup) => {
+                        annotation.set_is_hidden(true)?;
+                        annotation.set_is_printed(false)?;
+                        annotation.set_bounds(PdfRect::zero())?;
+                        modified = true;
+                    }
+                    PdfPageAnnotation::Square(square) => handle_generic_annotation(&annotation),
+                    PdfPageAnnotation::Squiggly(squiggly) => handle_generic_annotation(&annotation),
+                    PdfPageAnnotation::Stamp(stamp) => {
+                        annotation.set_is_hidden(true)?;
+                        annotation.set_is_printed(false)?;
+                        annotation.set_bounds(PdfRect::zero())?;
+                        modified = true;
+                    }
+                    PdfPageAnnotation::Strikeout(strikeout) => {
+                        handle_generic_annotation(&annotation)
+                    }
+                    PdfPageAnnotation::Text(text) => {
+                        println!("Annotation::Text {}", text.contents().unwrap_or_default());
+                    }
+                    PdfPageAnnotation::Underline(underline) => {
+                        handle_generic_annotation(&annotation)
+                    }
+                    PdfPageAnnotation::Widget(widget) => {}
+                    PdfPageAnnotation::XfaWidget(xfawidget) => {
+                        handle_generic_annotation(&annotation)
+                    }
+                    PdfPageAnnotation::Redacted(redacted) => handle_generic_annotation(&annotation),
+                    PdfPageAnnotation::Unsupported(f) => {
+                        f.get_type();
+                    }
+                    _ => handle_generic_annotation(&annotation),
+                }
+            }
+        }
 
-        // Iterate through all objects
-        for mut object in objects.iter() {
+        // Iterate through all objects on the page
+        for mut object in page.objects().iter() {
             match object {
                 PdfPageObject::Path(ref mut path_obj) => {
                     if !(strategy.contains(RuinStrategy::Rect)) {
@@ -124,4 +202,10 @@ pub fn ruin_file(
         modify_time,
         analyze_time,
     })
+}
+
+fn bounds_dimensions(bounds: &PdfRect) -> (f32, f32) {
+    let width = bounds.right() - bounds.left();
+    let height = bounds.top() - bounds.bottom();
+    (width.value, height.value)
 }

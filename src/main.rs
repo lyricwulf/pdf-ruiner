@@ -56,13 +56,15 @@ fn main() -> Result<()> {
         .map(|s| match s.as_str() {
             "rect" => strategy::RuinStrategy::Rect,
             "image" => strategy::RuinStrategy::Image,
+            "annotation" => strategy::RuinStrategy::Annotation,
             _ => panic!("Unknown strategy: {}", s),
         })
         .collect::<strategy::RuinStrategy>();
 
     // Write summary file
     let mut wtr = csv::Writer::from_path("summary.csv")?;
-    for filepath in &filelist {
+    for (idx, filepath) in filelist.iter().enumerate() {
+        eprint!("Processing file {}/{}\r", idx + 1, filelist.len());
         let out_path = std::path::Path::new(&args.out)
             .join(std::path::Path::new(filepath).file_name().unwrap());
         let ruin_result = ruin::ruin_file(filepath, &out_path, &strategy)?;
