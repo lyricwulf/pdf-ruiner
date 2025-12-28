@@ -30,35 +30,37 @@ pub fn ruin_file(filepath: &str, out_path: &std::path::Path) -> Result<RuinedInf
 
     // Process each page
     for (page_index, mut page) in ruined_document.pages().iter().enumerate() {
+        let mut modified = false;
+
+        // Defer page regeneration until after all modifications
+        page.set_content_regeneration_strategy(PdfPageContentRegenerationStrategy::Manual);
+
         // Get all objects on the page
         let objects = page.objects();
 
-        let mut modified = false;
-
         // Iterate through all objects
         for mut object in objects.iter() {
-            // Check if the object is a path (rectangles are path objects)
-            if object.object_type() == PdfPageObjectType::Path {
-                // Check if this path object is a rectangle
-                if is_rectangle(&object) {
-                    // Remove fill and ensure stroke is enabled
-                    if let Some(path) = object.as_path_object_mut() {
-                        path.set_fill_and_stroke_mode(PdfPathFillMode::None, true)?;
-                        if !modified {
-                            modified = true;
-                            pages_changed.push(page_index as PdfPageIndex);
-                        }
+            match object {
+                PdfPageObject::Path(ref mut path_obj) => {
+                    // Check if this path object is a rectangle
+                    if is_rectangle(path_obj) {
+                        // Remove fill and ensure stroke is enabled
+                        path_obj.set_fill_and_stroke_mode(PdfPathFillMode::None, true)?;
 
                         // Optionally set stroke color and width if needed
-                        // path.set_stroke_color(PdfColor::new(255, 0, 0, 255))?;
-                        // path.set_stroke_width(PdfPoints::new(1.0))?;
+                        // path_obj.set_stroke_color(PdfColor::new(255, 0, 0, 255))?;
+                        // path_obj.set_stroke_width(PdfPoints::new(1.0))?;
+                        modified = true;
                     }
                 }
+                PdfPageObject::Image(ref mut _img_obj) => {}
+                _ => {}
             }
         }
 
         // Regenerate the page content stream if we made changes
         if modified {
+            pages_changed.push(page_index as PdfPageIndex);
             page.regenerate_content()?;
         }
     }

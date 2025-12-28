@@ -46,6 +46,7 @@ fn main() -> Result<()> {
         vec![filepath.clone()]
     };
 
+    // Write summary file
     let mut wtr = csv::Writer::from_path("summary.csv")?;
     for filepath in &filelist {
         let out_path = std::path::Path::new(&args.out)
