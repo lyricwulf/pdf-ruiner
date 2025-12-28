@@ -5,6 +5,7 @@ use serde::Serialize;
 use crate::util::list_files;
 
 mod ruin;
+mod strategy;
 mod util;
 
 // Args
@@ -17,6 +18,9 @@ struct Args {
     /// Output directory
     #[arg(short, long, default_value = "ruined")]
     out: String,
+
+    #[arg(short, long, default_value = "rect")]
+    strategy: Vec<String>,
 
     #[arg(short, long)]
     color: Option<String>,
@@ -46,12 +50,22 @@ fn main() -> Result<()> {
         vec![filepath.clone()]
     };
 
+    let strategy = args
+        .strategy
+        .iter()
+        .map(|s| match s.as_str() {
+            "rect" => strategy::RuinStrategy::Rect,
+            "image" => strategy::RuinStrategy::Image,
+            _ => panic!("Unknown strategy: {}", s),
+        })
+        .collect::<strategy::RuinStrategy>();
+
     // Write summary file
     let mut wtr = csv::Writer::from_path("summary.csv")?;
     for filepath in &filelist {
         let out_path = std::path::Path::new(&args.out)
             .join(std::path::Path::new(filepath).file_name().unwrap());
-        let ruin_result = ruin::ruin_file(filepath, &out_path)?;
+        let ruin_result = ruin::ruin_file(filepath, &out_path, &strategy)?;
 
         wtr.serialize(ruin_result)?;
         wtr.flush()?;

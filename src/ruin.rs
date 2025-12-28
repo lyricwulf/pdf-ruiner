@@ -1,3 +1,4 @@
+use crate::strategy::RuinStrategy;
 use anyhow::Result;
 use pdfium_render::prelude::*;
 
@@ -6,7 +7,11 @@ use crate::{
     util::{is_rectangle, optical_compare},
 };
 
-pub fn ruin_file(filepath: &str, out_path: &std::path::Path) -> Result<RuinedInfo> {
+pub fn ruin_file(
+    filepath: &str,
+    out_path: &std::path::Path,
+    strategy: &RuinStrategy,
+) -> Result<RuinedInfo> {
     // Initialize Pdfium
     let pdfium = Pdfium::new(
         Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./lib"))
@@ -19,8 +24,8 @@ pub fn ruin_file(filepath: &str, out_path: &std::path::Path) -> Result<RuinedInf
     let original_document = pdfium.load_pdf_from_file(filepath, None)?;
     // is there a better way to clone this?
     let original_bytes = original_document.save_to_bytes()?;
-    println!(
-        "Found file {:<.2} MB: {}",
+    eprint!(
+        "Found file {:<.2} MB: {}\r",
         original_bytes.len() as f64 / 1024.0 / 1024.0,
         filepath,
     );
@@ -42,18 +47,36 @@ pub fn ruin_file(filepath: &str, out_path: &std::path::Path) -> Result<RuinedInf
         for mut object in objects.iter() {
             match object {
                 PdfPageObject::Path(ref mut path_obj) => {
+                    if !(strategy.contains(RuinStrategy::Rect)) {
+                        continue;
+                    }
+
                     // Check if this path object is a rectangle
                     if is_rectangle(path_obj) {
                         // Remove fill and ensure stroke is enabled
                         path_obj.set_fill_and_stroke_mode(PdfPathFillMode::None, true)?;
 
                         // Optionally set stroke color and width if needed
+                        // path_obj.set_fill_color(PdfColor::new(255, 255, 0, 64))?;
                         // path_obj.set_stroke_color(PdfColor::new(255, 0, 0, 255))?;
                         // path_obj.set_stroke_width(PdfPoints::new(1.0))?;
                         modified = true;
                     }
                 }
-                PdfPageObject::Image(ref mut _img_obj) => {}
+                PdfPageObject::Image(ref mut img_obj) => {
+                    if !(strategy.contains(RuinStrategy::Image)) {
+                        continue;
+                    }
+                    // let image = img_obj.get_raw_bitmap()?;
+                    // let processed_image = img_obj.get_processed_bitmap(&ruined_document)?;
+                    let _filter_count = img_obj.filters().len();
+                    let _filter_names = img_obj
+                        .filters()
+                        .iter()
+                        .map(|f| f.name().to_owned())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                }
                 _ => {}
             }
         }

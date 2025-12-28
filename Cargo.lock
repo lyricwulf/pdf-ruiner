@@ -1542,6 +1542,7 @@ name = "pdf-ruiner"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.10.0",
  "blas-src",
  "clap",
  "csv",
