@@ -20,16 +20,18 @@ pub fn ruin_file(
 
     let begin_modify_time = std::time::Instant::now();
 
-    // Open the PDF document
-    let original_document = pdfium.load_pdf_from_file(filepath, None)?;
-    // is there a better way to clone this?
-    let original_bytes = original_document.save_to_bytes()?;
+    let document_bytes = std::fs::read(filepath)?;
+    let document_size = document_bytes.len();
+
+    // Open the document twice. Could there be a way to avoid re-parsing?
+    let original_document = pdfium.load_pdf_from_byte_vec(document_bytes.clone(), None)?;
+    let ruined_document = pdfium.load_pdf_from_byte_vec(document_bytes, None)?;
+
     eprint!(
         "Found file {:<.2} MB: {}\r",
-        original_bytes.len() as f64 / 1024.0 / 1024.0,
+        document_size as f64 / (1024.0 * 1024.0),
         filepath,
     );
-    let ruined_document = pdfium.load_pdf_from_byte_vec(original_bytes, None)?;
 
     let mut pages_changed = vec![];
 
@@ -83,8 +85,8 @@ pub fn ruin_file(
 
         // Regenerate the page content stream if we made changes
         if modified {
-            pages_changed.push(page_index as PdfPageIndex);
             page.regenerate_content()?;
+            pages_changed.push(page_index as PdfPageIndex);
         }
     }
 
