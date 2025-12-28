@@ -1,6 +1,5 @@
 use anyhow::Result;
 use image::{GrayImage, ImageBuffer};
-use mupdf::{Colorspace, Matrix, document::Document};
 use ndarray::{Array3, s};
 use pdfium_render::prelude::*;
 
@@ -12,30 +11,12 @@ fn render_pdfium_page_to_image(pdf: &PdfDocument, page_index: PdfPageIndex) -> R
     Ok(img.to_luma8())
 }
 
-fn render_mupdf_page_to_image(doc: &Document, page_index: u16) -> Result<GrayImage> {
-    let page = doc.load_page(page_index as i32)?;
-
-    let pix = page.to_pixmap(&Matrix::IDENTITY, &Colorspace::device_rgb(), false, false)?;
-
-    let width = pix.width() as u32;
-    let height = pix.height() as u32;
-    let raw = pix.samples();
-
-    let img = ImageBuffer::from_raw(width, height, raw.to_vec())
-        .ok_or_else(|| anyhow::anyhow!("Failed to create image from rendered page"))?;
-
-    Ok(img)
-}
-
 pub fn optical_compare(
     pdf1: &PdfDocument,
     pdf2: &PdfDocument,
     pages: Option<&[PdfPageIndex]>,
     min_average_value: f32,
 ) -> Result<(f32, String)> {
-    // let mupdf_doc1 = Document::from_bytes(&pdf1.save_to_bytes()?, "")?;
-    // let mupdf_doc2 = Document::from_bytes(&pdf2.save_to_bytes()?, "")?;
-
     let mut differences = Vec::new();
 
     // Compare each page
@@ -44,9 +25,6 @@ pub fn optical_compare(
     for page_num in page_iter(pages, page_count as u16) {
         let img1 = render_pdfium_page_to_image(pdf1, page_num)?;
         let img2 = render_pdfium_page_to_image(pdf2, page_num)?;
-
-        // let img1 = render_mupdf_page_to_image(&mupdf_doc1, page_num)?;
-        // let img2 = render_mupdf_page_to_image(&mupdf_doc2, page_num)?;Z
 
         let (width, height) = img1.dimensions();
 
@@ -72,11 +50,11 @@ pub fn optical_compare(
         let diff_average_value = calculate_average_value(&weighted_thresholded);
 
         // Save the diff image for inspection
-        // let output_path = format!("pdf_shake_page{}.png", page_num + 1);
+        // let output_path = format!("pdf_weighted_thresholded_pg{}.png", page_num + 1);
         // array_to_image(&weighted_thresholded, width, height).save(&output_path)?;
-        // let output_path = format!("pdf_contrast_page{}.png", page_num + 1);
+        // let output_path = format!("pdf_blurred_pg{}.png", page_num + 1);
         // blurred.save(&output_path)?;
-        // let output_path = format!("pdf_diff_raw_page{}.png", page_num + 1);
+        // let output_path = format!("pdf_diff_raw_pg{}.png", page_num + 1);
         // array_to_image(&diff, width, height).save(&output_path)?;
 
         if diff_average_value < min_average_value {
