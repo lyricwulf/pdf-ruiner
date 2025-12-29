@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use serde::Serialize;
 
-use crate::util::list_files;
+use crate::{strategy::RuinStrategy, util::list_files};
 
 mod ruin;
 mod strategy;
@@ -60,6 +60,12 @@ fn main() -> Result<()> {
             _ => panic!("Unknown strategy: {}", s),
         })
         .collect::<strategy::RuinStrategy>();
+
+    if strategy.contains(RuinStrategy::Image) {
+        println!(
+            "Warning: Strategy includes images, which significantly increases processing time."
+        );
+    }
 
     // Write summary file
     let mut wtr = csv::Writer::from_path("summary.csv")?;

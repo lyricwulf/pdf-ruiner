@@ -13,10 +13,10 @@ pub fn ruin_file(
     strategy: &RuinStrategy,
 ) -> Result<RuinedInfo> {
     // Initialize Pdfium
-    let pdfium = Pdfium::new(
+    let pdfium_binding =
         Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./lib"))
-            .or_else(|_| Pdfium::bind_to_system_library())?,
-    );
+            .or_else(|_| Pdfium::bind_to_system_library())?;
+    let pdfium = Pdfium::new(pdfium_binding);
 
     let begin_modify_time = std::time::Instant::now();
 
@@ -147,15 +147,29 @@ pub fn ruin_file(
                     if !(strategy.contains(RuinStrategy::Image)) {
                         continue;
                     }
-                    // let image = img_obj.get_raw_bitmap()?;
-                    // let processed_image = img_obj.get_processed_bitmap(&ruined_document)?;
-                    let _filter_count = img_obj.filters().len();
-                    let _filter_names = img_obj
-                        .filters()
-                        .iter()
-                        .map(|f| f.name().to_owned())
-                        .collect::<Vec<_>>()
-                        .join(", ");
+                    let width = img_obj.width()?;
+                    let height = img_obj.height()?;
+                    let most_frequent_ratio = {
+                        let processed_image = img_obj.get_processed_bitmap(&ruined_document)?;
+                        let processed_image = processed_image.as_image().to_luma8();
+                        // Check if the image is mostly uniform
+                        let histogram = imageproc::stats::histogram(&processed_image).channels;
+                        let most_frequent_pixel_count = histogram[0].iter().max().unwrap_or(&0);
+                        let total_pixels = (width * height) as u32;
+
+                        *most_frequent_pixel_count as f32 / total_pixels as f32
+                    };
+                    if most_frequent_ratio >= 0.99 {
+                        // Replace with a blank image
+                        let blank_image = PdfBitmap::empty(
+                            width as _,
+                            height as _,
+                            PdfBitmapFormat::BGRA,
+                            pdfium.bindings(),
+                        )?;
+                        img_obj.set_bitmap(&blank_image)?;
+                        modified = true;
+                    }
                 }
                 _ => {}
             }
