@@ -3,6 +3,7 @@ use std::path::Path;
 use anyhow::Result;
 use clap::Parser;
 use serde::Serialize;
+use std::io::Write;
 
 use crate::{strategy::RuinStrategy, util::list_files};
 
@@ -71,10 +72,14 @@ fn main() -> Result<()> {
         );
     }
 
+    let start_time = std::time::Instant::now();
+
     // Write summary file
     let mut wtr = csv::Writer::from_path("summary.csv")?;
+    let mut lock = std::io::stdout().lock();
     for (idx, filepath) in filelist.iter().enumerate() {
-        eprint!("Processing file {}/{}\r", idx + 1, filelist.len());
+        write!(lock, "Processing file {}/{}\r", idx + 1, filelist.len())?;
+        lock.flush()?;
 
         let filepath_path = Path::new(filepath);
         // out_path relative to input filepath (folder)
@@ -85,6 +90,13 @@ fn main() -> Result<()> {
         wtr.serialize(ruin_result)?;
         wtr.flush()?;
     }
+    println!(); // newline after progress
+
+    println!(
+        "Processed {} files in {:.1?}",
+        filelist.len(),
+        start_time.elapsed()
+    );
 
     Ok(())
 }
