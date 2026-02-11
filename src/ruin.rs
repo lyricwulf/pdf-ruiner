@@ -201,6 +201,8 @@ pub fn ruin_file(
         0.01 / 100.0,
     )?;
 
+    // ensure output subdirectory exists
+    std::fs::create_dir_all(out_path.parent().unwrap()).ok();
     // Save the modified PDF
     ruined_document.save_to_file(out_path)?;
 

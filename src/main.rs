@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Result;
 use clap::Parser;
 use serde::Serialize;
@@ -37,18 +39,20 @@ pub(crate) struct RuinedInfo {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let filepath = args.path;
+    let input_dir = args.path;
 
     // Ensure output directory exists
     std::fs::create_dir_all(&args.out)?;
 
-    let filelist = if std::path::Path::new(&filepath).is_dir() {
+    let filelist = if Path::new(&input_dir).is_dir() {
         // if filepath is a directory, iterate over pdf files
-        list_files(&filepath, "pdf")?
+        list_files(&input_dir, "pdf")?
     } else {
         // if filepath is a file, process that file
-        vec![filepath.clone()]
+        vec![input_dir.clone()]
     };
+
+    println!("Found {} PDF files to process.", filelist.len());
 
     let strategy = args
         .strategy
@@ -71,8 +75,11 @@ fn main() -> Result<()> {
     let mut wtr = csv::Writer::from_path("summary.csv")?;
     for (idx, filepath) in filelist.iter().enumerate() {
         eprint!("Processing file {}/{}\r", idx + 1, filelist.len());
-        let out_path = std::path::Path::new(&args.out)
-            .join(std::path::Path::new(filepath).file_name().unwrap());
+
+        let filepath_path = Path::new(filepath);
+        // out_path relative to input filepath (folder)
+        let out_path = Path::new(&args.out).join(Path::strip_prefix(filepath_path, &input_dir)?);
+
         let ruin_result = ruin::ruin_file(filepath, &out_path, &strategy)?;
 
         wtr.serialize(ruin_result)?;
