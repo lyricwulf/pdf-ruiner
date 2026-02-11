@@ -83,9 +83,11 @@ fn main() -> Result<()> {
 
         let filepath_path = Path::new(filepath);
         // out_path relative to input filepath (folder)
-        let out_path = Path::new(&args.out).join(Path::strip_prefix(filepath_path, &input_dir)?);
+        let relative_path = filepath_path.strip_prefix(&input_dir)?;
+        let out_path = Path::new(&args.out).join(relative_path);
 
-        let ruin_result = ruin::ruin_file(filepath, &out_path, &strategy)?;
+        let mut ruin_result = ruin::ruin_file(filepath, &out_path, &strategy)?;
+        ruin_result.file_name = relative_path.to_string_lossy().to_string();
 
         wtr.serialize(ruin_result)?;
         wtr.flush()?;
